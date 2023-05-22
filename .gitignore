@@ -1,5 +1,5 @@
 # Python virtual environment
-flask-backend/venv/
+flask-backend/env/
 
 # Node.js dependencies
 react-frontend/node_modules/
