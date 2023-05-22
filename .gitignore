@@ -1,0 +1,5 @@
+# Python virtual environment
+flask-backend/venv/
+
+# Node.js dependencies
+node_modules/
