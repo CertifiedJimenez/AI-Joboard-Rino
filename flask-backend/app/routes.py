@@ -3,11 +3,16 @@ from flask import Blueprint, current_app, flash, jsonify, make_response, redirec
 # App specific
 from .services.jobboards import getReed, getAdzuna
 from .utils.skills_extractor import Text_Analyser
-from .utils.td_idf_vectorizer import TD_IDF_Vectorize_Jobs
-from .models import db, Jobs
 
+
+
+# sorting algorythms
+from .utils.td_idf_vectorizer import TD_IDF_Vectorize_Jobs
+from .utils.count_vectorizer import Count_Vectorize_Jobs
+
+from .models import db, Jobs
 import json
-from sqlalchemy import or_
+from sqlalchemy import or_, distinct
 import warnings
 import logging
 
@@ -20,26 +25,23 @@ def index():
     return 'Hello, World!'
 
 
-@bp.route('/get_all_possible_jobs/<location>', methods=['POST'])
-def get_all_possible_jobs(location):
-    """
-    This will extract all the skills on your cv and do
-    a round search and skills rank each job your skills offer
-    to the most optimsied job.
-    """
+# @bp.route('/get_all_possible_jobs/<location>', methods=['POST'])
+# def get_all_possible_jobs(location):
+#     """
+#     This will extract all the skills on your cv and do a round search 
+#     and skills rank each job your skills offer to the most optimsied job.
+#     """
 
-    if request.method == 'POST':
-        data = request.get_json()
-        cv_skills = Text_Analyser.extract_skills(data['Resume'])
+#     if request.method == 'POST':
+#         data = request.get_json()
+#         cv_skills = Text_Analyser.extract_skills(data['Resume'])
+#         jobs_found = []
+#         for skill in cv_skills:
+#             jobs = get_jobs(skill, location)
+#             jobs_found.append(jobs.json)
 
-        jobs_ranked = []
-        jobs_found = []
-        for skill in cv_skills:
-            jobs = get_jobs(skill, location)
-            jobs_found.append(jobs.json)
-
-        jobs_ranked.extend(order_jobs_by_skills(cv_skills, jobs_found))
-        return jsonify(jobs_ranked)
+#         jobs_ranked = set((order_jobs_by_skills(cv_skills, jobs_found, method='Count__Vectorize')))
+#         return jsonify(jobs_ranked)
 
 
 @bp.route('/get_jobs_skills_match/<name>/<location>', methods=['POST'])
@@ -50,67 +52,94 @@ def get_jobs_skills_match(name, location):
     """
 
     if request.method == 'POST':
-        data = request.get_json()
-        cv_skills = Text_Analyser.extract_skills(data['Resume'])
-        jobs = get_jobs(name, location)
+        start = int(request.args.get('start', 0))
+        end = int(request.args.get('end', 20))
+        add_jobs_str = request.args.get('add_jobs', 'false')
+        add_jobs = not (add_jobs_str.lower() == 'false')
 
-        jobs_ranked = order_jobs_by_skills(cv_skills, jobs.json)
+        # Get the JSON data from the request body
+        data = request.get_json()
+        if data and data.get('Resume'):
+            cv_skills = Text_Analyser.extract_skills(data['Resume'])
+        else:
+            return jsonify({'error': 'Invalid data provided'})
+
+        jobs = get_jobs(name, location, start, end, add_jobs)
+        if jobs.status_code != 200:
+            return jsonify({'error': 'Failed to retrieve jobs'})
+
+        jobs_ranked = order_jobs_by_skills(cv_skills, jobs.json, method='Count__Vectorize')
         return jsonify(jobs_ranked)
 
 
-@bp.route('/get_jobs/<name>/<location>')
-def get_jobs(name, location):
+@bp.route('/get_jobs/<name>/<location>', methods=['GET'])
+def get_jobs(name, location, start=0, end=20, add_jobs='false'):
     """
     This builds new entries in the database and adds
     new jobs to the following list.
     """
 
-    jobs_list = []
-    jobs_list.extend(build_job_search(name, location))
-    jobs_list.extend(load_jobs(name, location))
-    return jsonify(jobs_list)
+    try:
+        # Retrieve query parameters
+        start = int(request.args.get('start', start))
+        end = int(request.args.get('end', start + 20))
+        add_jobs_str = request.args.get('add_jobs', str(add_jobs))
+        add_jobs = not (add_jobs_str.lower() == 'false')
+
+        jobs_list = []
+        jobs_list.extend(load_jobs(name, location, start, end))
+        if add_jobs:
+            jobs_list.extend(build_job_search(name, location))
+
+        return jsonify(jobs_list)
+
+    except ValueError as e:
+        # Handle invalid start or end parameter value
+        return jsonify({'error': 'Invalid start or end parameter value'}), 400
+
+    except Exception as e:
+        # Handle other exceptions
+        return jsonify({'error': 'An error occurred'}), 500
 
 
-def load_jobs(name, location):
+def load_jobs(name, location, start, end) -> list[dict]:
     """
     This loads jobs but does not add any new entries
     in the database queries.
     """
 
     jobs = Jobs.query.filter(or_(Jobs.title.ilike(f'%{name}%'), Jobs.location.ilike(f'%{location}%'), Jobs.description.ilike(f'%{name}%')))
+    jobs_subset = jobs.order_by(Jobs.id.asc()).slice(start, end).all()  # Fetch the subset of jobs directly from the database
 
-    jobs_list = []
-    for job in jobs:
-        job_dict = {
-            'id': job.id,
-            'title': job.title,
-            'description': job.description,
-            'location': job.location,
-            'company': job.company,
-            'url': job.url,
-            'source': job.source,
-            'job_type': job.job_type,
-            'salary_min': job.salary_min,
-            'salary_max': job.salary_max,
-            'date_posted': job.date_posted.strftime('%Y-%m-%d %H:%M:%S'),
-            'skills': job.skills.split(', ')
-        }
-        jobs_list.append(job_dict)
-    return jobs_list
+    return [{
+        'id': job.id,
+        'title': job.title,
+        'description': job.description,
+        'location': job.location,
+        'company': job.company,
+        'url': job.url,
+        'source': job.source,
+        'job_type': job.job_type,
+        'salary_min': job.salary_min,
+        'salary_max': job.salary_max,
+        'date_posted': job.date_posted.strftime('%Y-%m-%d %H:%M:%S'),
+        'skills': job.skills.split(', ')
+
+    } for job in jobs_subset ]
 
 
-def build_job_search(name, location):
+def build_job_search(name, location, entires = 999) -> list[dict]:
     """
     This will make a query to the APIs and process them to
     add to the database using the serailized method in servies.
     """
 
     job_pending = []
-    job_pending.extend(getReed(name, location, 999, True))
-    job_pending.extend(getAdzuna(name, location, 999, True))
+    job_pending.extend(getReed(name, location, entires, True))
+    job_pending.extend(getAdzuna(name, location, entires, True))
                 
     for job in job_pending:
-        if not Jobs.query.filter_by(title=job['title'], company=job['company']).first():
+        if not Jobs.query.filter_by(title=job['title'], company=job['job_description']).first():
             job_model = Jobs(title=job['title'],
                         description=job['job_description'],
                         location=job['location'],
@@ -122,15 +151,26 @@ def build_job_search(name, location):
                         salary_max=job['salary_max'],
                         date_posted=job['Date'],
                         skills=json.dumps(job['skills']))
-
             db.session.add(job_model)
             db.session.commit()
     return job_pending
 
 
-def order_jobs_by_skills(cv_skills: list, jobs_list: list) -> list[dict]:
+def order_jobs_by_skills(cv_skills: list, jobs_list: list, method='TD_IDF__Vectorize') -> list[dict]:
     """
-    This uses the TD IDF vectorizer to skills match
-    the job posting.
+    This uses is a function that calls different sorting
+    algorythms to get the most relavent jobs.
+
+    Types of methods you can call:
+        - TD_IDF__Vectorize 
+        - Count__Vectorize
     """
-    return TD_IDF_Vectorize_Jobs(cv_skills, jobs_list)
+
+    if method == 'TD_IDF__Vectorize':
+        sort_algorithm = TD_IDF_Vectorize_Jobs
+    elif method == 'Count__Vectorize':
+        sort_algorithm = Count_Vectorize_Jobs
+    else:
+        raise ValueError("Invalid method specified.")
+
+    return sort_algorithm(cv_skills, jobs_list)

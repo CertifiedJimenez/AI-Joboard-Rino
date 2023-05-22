@@ -61,8 +61,8 @@ def getAdzuna(name, location, results=50, get_skills=False):
     results = [
         serialize_data(
             title=job.get('title'), job_description=job.get('description'),
-            company=job.get('company')['display_name'], source='Adzuna',
-            location=job.get('location')['display_name'], salary_min=job.get('salary_min'),
+            company=job.get('company').get('display_name'), source='Adzuna',
+            location=job.get('location').get('display_name'), salary_min=job.get('salary_min'),
             salary_max=job.get('salary_max'), job_type=job.get('contract_type'),
             date=None, url=job.get('redirect_url'), extract_skills=get_skills
         )
