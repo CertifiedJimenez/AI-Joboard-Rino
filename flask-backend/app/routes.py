@@ -3,14 +3,14 @@ from flask import Blueprint, current_app, flash, jsonify, make_response, redirec
 # App specific
 from .services.jobboards import getReed, getAdzuna
 from .utils.skills_extractor import Text_Analyser
-
+from .utils.google_custom_searches import get_company_logo, seach_linkedin
 
 
 # sorting algorythms
 from .utils.td_idf_vectorizer import TD_IDF_Vectorize_Jobs
 from .utils.count_vectorizer import Count_Vectorize_Jobs
 
-from .models import db, Jobs
+from .models import db, Jobs, Company
 import json
 from sqlalchemy import or_, and_, distinct
 import warnings
@@ -190,3 +190,48 @@ def order_jobs_by_skills(cv_skills: list, jobs_list: list, method='TD_IDF__Vecto
         raise ValueError("Invalid method specified.")
 
     return sort_algorithm(cv_skills, jobs_list)
+
+
+@bp.route('/get_job_posting/<id>', methods=['GET'])
+def get_job_posting(id):
+    job = Jobs.query.get(id)
+    if job is not None:
+        data = {
+        'id': job.id,
+        'title': job.title,
+        'description': job.description,
+        'location': job.location,
+        'company': job.company,
+        'url': job.url,
+        'source': job.source,
+        'job_type': job.job_type,
+        'salary_min': job.salary_min,
+        'salary_max': job.salary_max,
+        'date_posted': job.date_posted.strftime('%Y-%m-%d %H:%M:%S'),
+        'skills': ast.literal_eval(job.skills), 
+        }
+
+        additional_context = get_company_info_or_create(job.company, job.location)
+        data['logo'] = additional_context.get('image').get('thumbnailLink')
+        data['copmany_description'] = additional_context.get('htmlSnippet')
+        data['website'] = additional_context.get('displayLink')
+
+        return jsonify(data)
+    else:
+        data = {
+            'valid': False,
+            'messsage': 'Job not found.'
+        }
+        return jsonify(data)
+    
+
+def get_company_info_or_create(name: str, location: str):
+    company = Company.query.filter_by(name=name, location=location).first()
+    if company is not None:
+        # Company exists, do something with it
+        return company.logo
+    else:
+        new_company = Company(name=name, location=location, logo = seach_linkedin(name, location))
+        db.session.add(new_company)
+        db.session.commit()
+        return new_company.logo

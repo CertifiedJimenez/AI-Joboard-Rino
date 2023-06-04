@@ -16,3 +16,9 @@ class Jobs(db.Model):
     salary_max = db.Column(db.Float)
     date_posted = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     skills = db.Column(db.JSON)
+
+class Company(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), nullable=False)
+    location = db.Column(db.String(80), nullable=False)
+    logo = db.Column(db.JSON)
