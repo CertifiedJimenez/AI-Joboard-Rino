@@ -12,9 +12,10 @@ from .utils.count_vectorizer import Count_Vectorize_Jobs
 
 from .models import db, Jobs
 import json
-from sqlalchemy import or_, distinct
+from sqlalchemy import or_, and_, distinct
 import warnings
 import logging
+import ast
 
 
 bp = Blueprint('main', __name__)
@@ -90,7 +91,7 @@ def get_jobs(name, location, start=0, end=20, add_jobs='false'):
         jobs_list.extend(load_jobs(name, location, start, end))
         if add_jobs:
             jobs_list.extend(build_job_search(name, location))
-
+            
         return jsonify(jobs_list)
 
     except ValueError as e:
@@ -108,7 +109,22 @@ def load_jobs(name, location, start, end) -> list[dict]:
     in the database queries.
     """
 
-    jobs = Jobs.query.filter(or_(Jobs.title.ilike(f'%{name}%'), Jobs.location.ilike(f'%{location}%'), Jobs.description.ilike(f'%{name}%')))
+    # jobs = Jobs.query.filter(or_(Jobs.title.ilike(f'%{name}%'), Jobs.location.ilike(f'%{location}%'), Jobs.description.ilike(f'%{name}%')))
+
+    # Define the filters
+    name_filter = Jobs.title.ilike(f'%{name}%')
+    location_filter = Jobs.location.ilike(f'%{location}%')
+    description_filter = Jobs.description.ilike(f'%{name}%')
+
+    # Construct the query
+    jobs = Jobs.query.filter(and_(or_(location_filter, name_filter, description_filter), Jobs.location.ilike(f'%{location}%')))
+
+    # Add the ordering
+    jobs = jobs.order_by(
+        name_filter.desc(),
+        description_filter.desc()
+    )
+
     jobs_subset = jobs.order_by(Jobs.id.asc()).slice(start, end).all()  # Fetch the subset of jobs directly from the database
 
     return [{
@@ -123,7 +139,7 @@ def load_jobs(name, location, start, end) -> list[dict]:
         'salary_min': job.salary_min,
         'salary_max': job.salary_max,
         'date_posted': job.date_posted.strftime('%Y-%m-%d %H:%M:%S'),
-        'skills': job.skills.split(', ')
+        'skills': ast.literal_eval(job.skills)
 
     } for job in jobs_subset ]
 

@@ -1,25 +1,25 @@
 import React from 'react';
 import JobCard from '../components/SearchPage/jobCard'; 
+import JobRender from '../components/RenderPage/JobRender'; 
 // import {get_jobs_skills_match, get_jobs} from '../services/server_calls';
 
 
 function SearchPage() {
     
-    // const jobs = get_jobs('DJango', 'London');
-  
     return (
       <div>
-        {/* Add your search page content here */}
         <h1 className="text-center">Search Page</h1>
   
         <div className='container'>
-          <div className='row row justify-content-start'>
-            <div className='col-md-6'>
+          <div className='row justify-content-center'>
+            <div className='col-md-6 px-0'>
               <JobCard/>
+            </div>
+            <div className='col-md-6 px-0'>
+              <JobRender />
             </div>
           </div>
         </div>
-        {/* You can add more elements or components here */}
       </div>
     );
   }

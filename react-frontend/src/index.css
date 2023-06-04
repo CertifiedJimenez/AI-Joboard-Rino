@@ -34,8 +34,15 @@ h5{
   color: #71717A;
 }
 
-div.table-border{
+div.render-panel{
   border: 1px solid #ECECEE;
+}
+
+div.table-border{
+
+  border-left: 1px solid #ECECEE;
+  border-bottom: 1px solid #ECECEE;
+  /* border: 1px solid #ECECEE; */
   border-radius: 0px;
   background-color: white;
 }
@@ -43,8 +50,12 @@ div.table-border{
 
 div.table-border:hover{
   background-color: #f9f9f9;
+}
+
+div.clickable{
   cursor: pointer;
 }
+
 p.preview-text{
   max-height: 70px;
   overflow: hidden;

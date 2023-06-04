@@ -47,7 +47,7 @@ function JobCard({ jsonData, isLoading }: JobCardProps) {
   }, [jsonData]);
 
   return (
-    <div className={`p-5 table-border w-100 ${isLoading ? 'isLoading' : ''}`}>
+    <div className={`p-5 table-border clickable w-100 ${isLoading ? 'isLoading' : ''}`}>
       <h4 className='mb-2'>{data ? data.title : 'No Title'}</h4>
       {data && (
         <>
@@ -78,7 +78,6 @@ function JobCard({ jsonData, isLoading }: JobCardProps) {
     </div>
   );
 }
-
 
 function Timeline() {
   const [jobs, setJobs] = useState<JobData[]>([]);
@@ -130,7 +129,10 @@ function Timeline() {
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
+
   }, [jobs, maxJobs]);
+
+
 
   return (
     <div>
