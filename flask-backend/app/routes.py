@@ -3,7 +3,7 @@ from flask import Blueprint, current_app, flash, jsonify, make_response, redirec
 # App specific
 from .services.jobboards import getReed, getAdzuna
 from .utils.skills_extractor import Text_Analyser
-from .utils.google_custom_searches import get_company_logo, seach_linkedin
+from .utils.google_custom_searches import get_company_logo, seach_linkedin, get_linkedin_people
 
 
 # sorting algorythms
@@ -212,10 +212,14 @@ def get_job_posting(id):
         }
 
         additional_context = get_company_info_or_create(job.company, job.location)
-        data['logo'] = additional_context.get('image').get('thumbnailLink')
-        data['copmany_description'] = additional_context.get('htmlSnippet')
-        data['website'] = additional_context.get('displayLink')
-
+        data['additional_context']= {}
+        data['additional_context']['logo'] = additional_context[0].get('pagemap').get('cse_image')[0].get('src')
+        data['additional_context']['copmany_description'] = additional_context[0].get('pagemap').get('metatags')[0].get('og:description')
+        data['additional_context']['company_website'] = additional_context[0].get('link')
+        data['additional_context']['linkedin_people'] = get_linkedin_people(additional_context)
+        
+        
+        data['z']= additional_context
         return jsonify(data)
     else:
         data = {

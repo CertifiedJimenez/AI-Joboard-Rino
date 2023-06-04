@@ -1,4 +1,5 @@
 import requests
+import re
 
 API_KEY = 'AIzaSyCKNKfRCcvyxx8vreSpyD-SDK0k4Iis89Y'
 CUSTOM_SEARCH_ENGINE_ID = '43d60d4ca5b05426f'
@@ -46,3 +47,23 @@ def get_company_logo(company, location):
         print(item['title'], item['link'])
         logos.append(item)
     return logos
+
+
+
+def get_linkedin_people(data: dict) -> list[dict]:
+    """
+    Gets the linkedin people linkedin information
+    that works at the company from the scrapped data.
+    """
+    person = []
+    for pages in data:
+        url = pages.get('link')
+        #qualify as a person
+        if '/in/' in url:
+            data = {}
+            data['link'] = url
+            data['name'] = str(url.split('/in/')[1]).replace('-', ' ')
+            data['image'] = pages.get('pagemap').get('cse_image')[0].get('src')
+            person.append(data)
+
+    return [person]
