@@ -193,7 +193,7 @@ def order_jobs_by_skills(cv_skills: list, jobs_list: list, method='TD_IDF__Vecto
 
 
 @bp.route('/get_job_posting/<id>', methods=['GET'])
-def get_job_posting(id):
+def get_job_posting(id, addition_context_required = False):
     job = Jobs.query.get(id)
     if job is not None:
         data = {
@@ -211,12 +211,13 @@ def get_job_posting(id):
         'skills': ast.literal_eval(job.skills), 
         }
 
-        additional_context = get_company_info_or_create(job.company, job.location)
-        data['additional_context']= {}
-        data['additional_context']['logo'] = additional_context[0].get('pagemap').get('cse_image')[0].get('src')
-        data['additional_context']['copmany_description'] = additional_context[0].get('pagemap').get('metatags')[0].get('og:description')
-        data['additional_context']['company_website'] = additional_context[0].get('link')
-        data['additional_context']['linkedin_people'] = get_linkedin_people(additional_context)        
+        if addition_context_required:
+            additional_context = get_company_info_or_create(job.company, job.location)
+            data['additional_context']= {}
+            data['additional_context']['logo'] = additional_context[0].get('pagemap').get('cse_image')[0].get('src')
+            data['additional_context']['copmany_description'] = additional_context[0].get('pagemap').get('metatags')[0].get('og:description')
+            data['additional_context']['company_website'] = additional_context[0].get('link')
+            data['additional_context']['linkedin_people'] = get_linkedin_people(additional_context)        
         return jsonify(data)
     else:
         data = {
