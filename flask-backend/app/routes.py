@@ -216,10 +216,7 @@ def get_job_posting(id):
         data['additional_context']['logo'] = additional_context[0].get('pagemap').get('cse_image')[0].get('src')
         data['additional_context']['copmany_description'] = additional_context[0].get('pagemap').get('metatags')[0].get('og:description')
         data['additional_context']['company_website'] = additional_context[0].get('link')
-        data['additional_context']['linkedin_people'] = get_linkedin_people(additional_context)
-        
-        
-        data['z']= additional_context
+        data['additional_context']['linkedin_people'] = get_linkedin_people(additional_context)        
         return jsonify(data)
     else:
         data = {
