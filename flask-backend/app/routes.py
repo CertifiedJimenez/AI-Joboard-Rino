@@ -193,7 +193,7 @@ def order_jobs_by_skills(cv_skills: list, jobs_list: list, method='TD_IDF__Vecto
 
 
 @bp.route('/get_job_posting/<id>', methods=['GET'])
-def get_job_posting(id, addition_context_required = False):
+def get_job_posting(id, addition_context_required = True):
     job = Jobs.query.get(id)
     if job is not None:
         data = {

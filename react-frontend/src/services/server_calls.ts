@@ -71,3 +71,26 @@ export const get_jobs = async (name: string, location: string, params:  Record<s
 };
 
 
+export const get_job_info = async (id: number, params:  Record<string, string | undefined>): Promise<JobData[]> => {
+  const myHeaders = new Headers();
+  myHeaders.append('Content-Type', 'application/json');
+
+  const requestOptions: RequestInit = {
+    method: 'GET',
+    headers: myHeaders,
+    redirect: 'follow',
+  };
+
+  const urlParams = new URLSearchParams(params);
+  const queryString = urlParams.toString();
+  const url = `${PORT_URL}/get_job_posting/${id}`;
+
+  try {
+    const response = await fetch(url, requestOptions);
+    const result = await response.json(); // Parse the response as JSON
+    return result; // Return the parsed result
+  } catch (error) {
+    console.log('error', error);
+    throw error; // Throw the error to be caught in the component
+  }
+};

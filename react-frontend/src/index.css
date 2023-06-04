@@ -36,6 +36,7 @@ h5{
 
 div.render-panel{
   border: 1px solid #ECECEE;
+  border-radius: 0px 11.2px 11.2px 0px;
 }
 
 div.table-border{
@@ -47,13 +48,9 @@ div.table-border{
   background-color: white;
 }
 
-
-div.table-border:hover{
-  background-color: #f9f9f9;
-}
-
-div.clickable{
+div.clickable:hover{
   cursor: pointer;
+  background-color: #f9f9f9;
 }
 
 p.preview-text{
@@ -91,6 +88,23 @@ p{
 }
 
 
+img.logo{
+  height: 20px;
+  width: auto;
+}
+
+div.logo-bg{
+
+  display: flex;
+  justify-content: center; /* Center horizontally */
+  align-items: center; /* Center vertically */
+
+  height: 60px;
+  width: 60px;
+  background: #F4F4F5;
+  border-radius: 11.2px;
+}
+
 .isLoading p,.isLoading h5,.isLoading h4,.isLoading li{
   color: transparent;
   background: linear-gradient(to right, #f2f2f2 0%, #e6e6e6 50%, #f2f2f2 100%);
@@ -104,4 +118,16 @@ p{
   100% {
     background-position: 200% 0;
   }
+}
+
+
+.card{
+  border: none!important;
+  background: #FFFFFF;
+  box-shadow: 0px 5px 10px rgba(0, 0, 0, 0.12);
+  border-radius: 5px;
+}
+
+span {
+  color: #666666;
 }

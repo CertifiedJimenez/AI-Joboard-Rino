@@ -5,6 +5,7 @@ import {get_jobs, get_jobs_skills_match} from '../../services/server_calls';
 interface JobCardProps {
   jsonData: JobData;
   isLoading: boolean;
+  onClick: (id: number) => void; // Define the onClick prop with the appropriate type
 }
 
 interface JobData {
@@ -38,16 +39,21 @@ const example_json: JobData = {
 };
 
 
-
-function JobCard({ jsonData, isLoading }: JobCardProps) {
-  const [data, setData] = useState<JobData | null>(null);
+function JobCard({ jsonData, isLoading, onClick }) {
+  const [data, setData] = useState(null);
 
   useEffect(() => {
     setData(jsonData);
   }, [jsonData]);
 
+  const handleClick = () => {
+    if (data && data.id) {
+      onClick(data.id);
+    }
+  };
+
   return (
-    <div className={`p-5 table-border clickable w-100 ${isLoading ? 'isLoading' : ''}`}>
+    <div className={`p-5 table-border clickable w-100 ${isLoading ? 'isLoading' : ''}`} onClick={handleClick}>
       <h4 className='mb-2'>{data ? data.title : 'No Title'}</h4>
       {data && (
         <>
@@ -60,18 +66,26 @@ function JobCard({ jsonData, isLoading }: JobCardProps) {
               ))}
             </ul>
 
-            <div className='w-auto'>
-              <h5>£{data.salary_min} - £{data.salary_max}</h5>
-            </div>
-            <div className='w-auto'>
-              <h5>{data.job_type}</h5>
-            </div>
-            <div className='w-auto'>
-              <h5>{data.company}</h5>
-            </div>
-            <div className='w-auto'>
-              <h5>{data.location}</h5>
-            </div>
+            {data.salary_min && data.salary_max && (
+              <div className='w-auto'>
+                <h5>£{data.salary_min} - £{data.salary_max}</h5>
+              </div>
+            )}
+            {data.job_type && (
+              <div className='w-auto'>
+                <h5>{data.job_type}</h5>
+              </div>
+            )}
+            {data.company && (
+              <div className='w-auto'>
+                <h5>{data.company}</h5>
+              </div>
+            )}
+            {data.location && (
+              <div className='w-auto'>
+                <h5>{data.location}</h5>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -79,14 +93,16 @@ function JobCard({ jsonData, isLoading }: JobCardProps) {
   );
 }
 
-function Timeline() {
+
+function Timeline({handleClick}) {
+
   const [jobs, setJobs] = useState<JobData[]>([]);
   const [maxJobs, setMaxJobs] = useState<number>(40);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const data: JobData[] = await get_jobs('Django', 'London', undefined);
+        const data: JobData[] = await get_jobs('Care', 'London', undefined);
         setJobs(data.slice(0, maxJobs)); // Update the jobs state with the fetched data, limited to maxJobs
         console.log(data);
       } catch (error: any) {
@@ -105,7 +121,7 @@ function Timeline() {
           'start': String(jobs.length),
           'end': String(jobs.length + 20),
         };
-        const newJobs: JobData[] = await get_jobs('Django', 'London', params);
+        const newJobs: JobData[] = await get_jobs('Care', 'London', params);
         setJobs((prevJobs) => [...prevJobs, ...newJobs.slice(0, maxJobs - prevJobs.length)]); // Append new jobs to the existing jobs state, limited to maxJobs
         if (jobs.length + newJobs.length < maxJobs) {
           window.addEventListener('scroll', handleScroll); // Add the scroll event listener back if there's still room for more jobs
@@ -138,7 +154,7 @@ function Timeline() {
     <div>
       {jobs.length > 0 ? (
         jobs.map((item, index) => (
-          <JobCard key={index} jsonData={item} isLoading={false} />
+          <JobCard key={index} jsonData={item} isLoading={false} onClick={handleClick} />
         ))
       ) : (
         <>No Jobs found</>
