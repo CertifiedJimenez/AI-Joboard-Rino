@@ -102,7 +102,7 @@ function Timeline({handleClick}) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const data: JobData[] = await get_jobs('Care', 'London', undefined);
+        const data: JobData[] = await get_jobs('Django', 'London', undefined);
         setJobs(data.slice(0, maxJobs)); // Update the jobs state with the fetched data, limited to maxJobs
         console.log(data);
       } catch (error: any) {
@@ -121,7 +121,7 @@ function Timeline({handleClick}) {
           'start': String(jobs.length),
           'end': String(jobs.length + 20),
         };
-        const newJobs: JobData[] = await get_jobs('Care', 'London', params);
+        const newJobs: JobData[] = await get_jobs('Django', 'London', params);
         setJobs((prevJobs) => [...prevJobs, ...newJobs.slice(0, maxJobs - prevJobs.length)]); // Append new jobs to the existing jobs state, limited to maxJobs
         if (jobs.length + newJobs.length < maxJobs) {
           window.addEventListener('scroll', handleScroll); // Add the scroll event listener back if there's still room for more jobs
