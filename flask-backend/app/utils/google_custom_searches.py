@@ -20,7 +20,7 @@ def seach_linkedin(company, location):
 
     linkedin_results = []
     results = search_linkedin(SEARCH_QUERY)
-    for item in results['items']:
+    for item in results.get('items', []):
         linkedin_results.append(item)
 
     return linkedin_results
@@ -66,4 +66,4 @@ def get_linkedin_people(data: dict) -> list[dict]:
             data['image'] = pages.get('pagemap').get('cse_image')[0].get('src')
             person.append(data)
 
-    return [person]
+    return person

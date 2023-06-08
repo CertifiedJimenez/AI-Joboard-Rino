@@ -18,7 +18,7 @@ def serialize_data(url: str, title: str, company: str, job_description: str, loc
         "source": source,
         "title": title,
         "company": company,
-        "job_description": job_description,
+        "description": job_description,
         "location": location,
         "job_type": job_type,
         "salary_max": salary_max,
@@ -113,5 +113,4 @@ def getReed(name, location, results = 50, get_skills = False):
                 company=job.get('employerName'), source='Reed', location=job.get('locationName'),
                 salary_min=job.get('minimumSalary'), salary_max=job.get('maximumSalary'), date=None,
                 url=job.get('jobUrl'), extract_skills=get_skills) for job in reed_response.json().get('results', [])]
-
     return results

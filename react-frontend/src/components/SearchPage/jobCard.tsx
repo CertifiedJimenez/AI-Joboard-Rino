@@ -1,11 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import {get_jobs, get_jobs_skills_match} from '../../services/server_calls';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf';
 
+async function extractTextFromPDF(file: File) {
+  try {
+    const reader = new FileReader();
 
-interface JobCardProps {
-  jsonData: JobData;
-  isLoading: boolean;
-  onClick: (id: number) => void; // Define the onClick prop with the appropriate type
+    // Convert file to ArrayBuffer
+    const fileDataPromise = new Promise<Uint8Array>((resolve, reject) => {
+      reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+
+    const pdfData = await fileDataPromise;
+
+    // Set the worker source to the default path
+    GlobalWorkerOptions.workerSrc = '/pdf.worker.js'; // CHANGE THIS WHEN CLEANING ADD A WARNING
+    // GlobalWorkerOptions.workerSrc = '/node_modules/pdfjs-dist/build/pdf.worker.js'; // Update the worker source path based on the location of pdf.worker.js
+
+    // Load the PDF document
+    const loadingTask = getDocument({ data: pdfData });
+    const pdf = await loadingTask.promise;
+
+    // Get the number of pages in the PDF
+    const numPages = pdf.numPages;
+
+    let text = '';
+
+    // Iterate over each page and extract the text
+    for (let i = 1; i <= numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items.map((item) => item['str']).join(' ');
+      text += pageText;
+    }
+
+    return text;
+  } catch (error) {
+    console.error('Error extracting text from PDF:', error);
+    throw error;
+  }
 }
 
 interface JobData {
@@ -51,7 +86,7 @@ function JobCard({ jsonData, isLoading, onClick }) {
       onClick(data.id);
     }
   };
-
+  
   return (
     <div className={`p-5 table-border clickable w-100 ${isLoading ? 'isLoading' : ''}`} onClick={handleClick}>
       <h4 className='mb-2'>{data ? data.title : 'No Title'}</h4>
@@ -93,41 +128,105 @@ function JobCard({ jsonData, isLoading, onClick }) {
   );
 }
 
+function JobResults({ results, title, location, onchange }){
 
-function Timeline({handleClick}) {
+  const [uploadPlaceholder, setUploadPlaceholder] = useState('Upload Resume');
 
+  useEffect(() => {
+    const handleScroll = () => {
+      const element = document.querySelector('.search-results-banner') as HTMLElement; // Use type assertion
+      const rect = element.getBoundingClientRect();
+      const offsetTop = rect.top + window.pageYOffset;
+
+      if (window.pageYOffset >= offsetTop) {
+        element.style.position = 'fixed';
+        element.style.top = Math.max(0, window.pageYOffset - offsetTop) -0.7 + 'px';
+        element.style.width = rect.width + 'px';
+      } else {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        if (scrollTop === 0) {
+          element.style.position = 'static';
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+
+  const handleFileChange = async (event) => {
+    const file = event.target.files[0];
+    setUploadPlaceholder(file.name)
+    try {
+      const extractedText = await extractTextFromPDF(file);
+      onchange(extractedText)
+    } catch (error) {
+      console.error('Error extracting text:', error);
+    }
+  };
+
+  return (
+    <div className='col-12 search-results-banner p-3 text-capitalize'>
+      <div className='row'>
+        <div className='col'>
+          <h6 className='text-white'>{title + ' in ' + location}</h6>
+          <span className='text-white'>{results} results</span>
+        </div>
+        <div className='col-3 d-flex align-items-center justify-content-center'>
+          <label htmlFor='resume-upload' className='text-white text-truncate' title={uploadPlaceholder}>
+           {uploadPlaceholder}
+          </label>
+          <input
+            id='resume-upload'
+            type='file'
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+
+
+function Timeline({ handleClick, context}) {
   const [jobs, setJobs] = useState<JobData[]>([]);
-  const [maxJobs, setMaxJobs] = useState<number>(40);
+
+  const [results, setResults] = useState<number>(0);
+  const [title, setTitle] = useState(context.title);
+  const [location, setLocation] = useState(context.location);
+  const [infinateScroll, setInfinateScroll] = useState(true)
+
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const data: JobData[] = await get_jobs('Django', 'London', undefined);
-        setJobs(data.slice(0, maxJobs)); // Update the jobs state with the fetched data, limited to maxJobs
-        console.log(data);
+        const data = await get_jobs(title, location, undefined);
+        setJobs(data['results']);
+        setResults(data['length']);
       } catch (error: any) {
-        // Handle the error here
         console.log('error', error);
       }
     };
 
     fetchData();
-  }, [maxJobs]);
+  }, []);
 
   useEffect(() => {
     const fetchMoreJobs = async () => {
       try {
         const params = {
-          'start': String(jobs.length),
-          'end': String(jobs.length + 20),
+          start: String(jobs.length),
+          end: String(jobs.length + 20),
         };
-        const newJobs: JobData[] = await get_jobs('Django', 'London', params);
-        setJobs((prevJobs) => [...prevJobs, ...newJobs.slice(0, maxJobs - prevJobs.length)]); // Append new jobs to the existing jobs state, limited to maxJobs
-        if (jobs.length + newJobs.length < maxJobs) {
-          window.addEventListener('scroll', handleScroll); // Add the scroll event listener back if there's still room for more jobs
-        }
+        const newJobs = await get_jobs(title, location, params);
+        setJobs((prevJobs) => [...prevJobs, ...newJobs['results']]);
       } catch (error: any) {
-        // Handle the error here
         console.log('error', error);
       }
     };
@@ -135,23 +234,35 @@ function Timeline({handleClick}) {
     const handleScroll = () => {
       const isBottom =
         window.innerHeight + window.pageYOffset >= document.body.offsetHeight;
-      if (isBottom) {
+      if (isBottom && infinateScroll) {
         fetchMoreJobs();
       }
+
     };
 
     window.addEventListener('scroll', handleScroll);
-
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
+  }, [jobs]);
 
-  }, [jobs, maxJobs]);
 
+  const onchange = async (resumeText)=>{
+    const params = {
+      'add_jobs': 'true'
+    }
+    const matcheJobs = await get_jobs_skills_match(title, location, resumeText, params);
+    console.log(matcheJobs)
+    setJobs(matcheJobs['results'])
+    setResults(matcheJobs['length'])
+    setInfinateScroll(false)
+  };
+  
 
 
   return (
     <div>
+      <JobResults results={results} title={title} location={location} onchange={onchange} />
       {jobs.length > 0 ? (
         jobs.map((item, index) => (
           <JobCard key={index} jsonData={item} isLoading={false} onClick={handleClick} />

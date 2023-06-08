@@ -4,7 +4,7 @@ from flask import Blueprint, current_app, flash, jsonify, make_response, redirec
 from .services.jobboards import getReed, getAdzuna
 from .utils.skills_extractor import Text_Analyser
 from .utils.google_custom_searches import get_company_logo, seach_linkedin, get_linkedin_people
-
+from .utils.job_insights import request_salary_insight
 
 # sorting algorythms
 from .utils.td_idf_vectorizer import TD_IDF_Vectorize_Jobs
@@ -12,7 +12,7 @@ from .utils.count_vectorizer import Count_Vectorize_Jobs
 
 from .models import db, Jobs, Company
 import json
-from sqlalchemy import or_, and_, distinct
+from sqlalchemy import or_, and_, distinct, func
 import warnings
 import logging
 import ast
@@ -54,7 +54,7 @@ def get_jobs_skills_match(name, location):
 
     if request.method == 'POST':
         start = int(request.args.get('start', 0))
-        end = int(request.args.get('end', 20))
+        end = int(request.args.get('end', 999))
         add_jobs_str = request.args.get('add_jobs', 'false')
         add_jobs = not (add_jobs_str.lower() == 'false')
 
@@ -69,8 +69,8 @@ def get_jobs_skills_match(name, location):
         if jobs.status_code != 200:
             return jsonify({'error': 'Failed to retrieve jobs'})
 
-        jobs_ranked = order_jobs_by_skills(cv_skills, jobs.json, method='Count__Vectorize')
-        return jsonify(jobs_ranked)
+        jobs_ranked = order_jobs_by_skills(cv_skills, jobs.json['results'], method='Count__Vectorize')
+        return jsonify({'results':jobs_ranked, 'length': jobs.json['length']})
 
 
 @bp.route('/get_jobs/<name>/<location>', methods=['GET'])
@@ -84,26 +84,28 @@ def get_jobs(name, location, start=0, end=20, add_jobs='false'):
         # Retrieve query parameters
         start = int(request.args.get('start', start))
         end = int(request.args.get('end', start + 20))
+        difference = end - end
+
         add_jobs_str = request.args.get('add_jobs', str(add_jobs))
         add_jobs = not (add_jobs_str.lower() == 'false')
 
         jobs_list = []
-        jobs_list.extend(load_jobs(name, location, start, end))
-        if add_jobs:
+        found_jobs, max_found_jobs  = load_jobs(name, location, start, end)
+        jobs_list.extend(found_jobs)
+
+        if add_jobs or len(found_jobs) == 0 or difference > len(found_jobs): 
+            #if run out of searches add new entries
             jobs_list.extend(build_job_search(name, location))
             
-        return jsonify(jobs_list)
-
-    except ValueError as e:
-        # Handle invalid start or end parameter value
-        return jsonify({'error': 'Invalid start or end parameter value'}), 400
+        return jsonify({'results':jobs_list, 'length': max_found_jobs})
 
     except Exception as e:
         # Handle other exceptions
+        print('error: ', e)
         return jsonify({'error': 'An error occurred'}), 500
 
 
-def load_jobs(name, location, start, end) -> list[dict]:
+def load_jobs(name, location, start, end) -> list[dict, int]:
     """
     This loads jobs but does not add any new entries
     in the database queries.
@@ -125,9 +127,11 @@ def load_jobs(name, location, start, end) -> list[dict]:
         description_filter.desc()
     )
 
+    jobs_count = jobs.with_entities(func.count()).scalar() 
+
     jobs_subset = jobs.order_by(Jobs.id.asc()).slice(start, end).all()  # Fetch the subset of jobs directly from the database
 
-    return [{
+    return [[{
         'id': job.id,
         'title': job.title,
         'description': job.description,
@@ -141,35 +145,54 @@ def load_jobs(name, location, start, end) -> list[dict]:
         'date_posted': job.date_posted.strftime('%Y-%m-%d %H:%M:%S'),
         'skills': ast.literal_eval(job.skills)
 
-    } for job in jobs_subset ]
+    } for job in jobs_subset ], jobs_count]
 
 
-def build_job_search(name, location, entires = 999) -> list[dict]:
+def build_job_search(name, location, entries = 999) -> list[dict]:
     """
     This will make a query to the APIs and process them to
     add to the database using the serailized method in servies.
     """
 
     job_pending = []
-    job_pending.extend(getReed(name, location, entires, True))
-    job_pending.extend(getAdzuna(name, location, entires, True))
-                
+    saved_models = []
+    job_pending.extend(getReed(name, location, entries, True))
+    job_pending.extend(getAdzuna(name, location, entries, True))
+
     for job in job_pending:
-        if not Jobs.query.filter_by(title=job['title'], company=job['job_description']).first():
-            job_model = Jobs(title=job['title'],
-                        description=job['job_description'],
-                        location=job['location'],
-                        company=job['company'],
-                        url=job['url'],
-                        source=job['source'],
-                        job_type=job['job_type'],
-                        salary_min=job['salary_min'],
-                        salary_max=job['salary_max'],
-                        date_posted=job['Date'],
-                        skills=json.dumps(job['skills']))
+        if not Jobs.query.filter_by(title=job['title'], company=job['description']).first():
+            job_model = Jobs(
+                title=job['title'],
+                description=job['description'],
+                location=job['location'],
+                company=job['company'],
+                url=job['url'],
+                source=job['source'],
+                job_type=job['job_type'],
+                salary_min=job['salary_min'],
+                salary_max=job['salary_max'],
+                date_posted=job['Date'],
+                skills=json.dumps(job['skills'])
+            )
             db.session.add(job_model)
             db.session.commit()
-    return job_pending
+            serialized_job = {
+                'id': job_model.id,
+                'title': job_model.title,
+                'description': job_model.description,
+                'location': job_model.location,
+                'company': job_model.company,
+                'url': job_model.url,
+                'source': job_model.source,
+                'job_type': job_model.job_type,
+                'salary_min': job_model.salary_min,
+                'salary_max': job_model.salary_max,
+                'date_posted': job_model.date_posted,
+                'skills': json.loads(job_model.skills)
+            }
+            saved_models.append(serialized_job)
+    return saved_models
+
 
 
 def order_jobs_by_skills(cv_skills: list, jobs_list: list, method='TD_IDF__Vectorize') -> list[dict]:
@@ -188,7 +211,7 @@ def order_jobs_by_skills(cv_skills: list, jobs_list: list, method='TD_IDF__Vecto
         sort_algorithm = Count_Vectorize_Jobs
     else:
         raise ValueError("Invalid method specified.")
-
+    
     return sort_algorithm(cv_skills, jobs_list)
 
 
@@ -213,11 +236,12 @@ def get_job_posting(id, addition_context_required = True):
 
         if addition_context_required:
             additional_context = get_company_info_or_create(job.company, job.location)
-            data['additional_context']= {}
-            data['additional_context']['logo'] = additional_context[0].get('pagemap').get('cse_image')[0].get('src')
-            data['additional_context']['copmany_description'] = additional_context[0].get('pagemap').get('metatags')[0].get('og:description')
-            data['additional_context']['company_website'] = additional_context[0].get('link')
-            data['additional_context']['linkedin_people'] = get_linkedin_people(additional_context)        
+            if(additional_context):
+                data['additional_context']= {}
+                data['additional_context']['logo'] = additional_context[0].get('pagemap').get('cse_image')[0].get('src')
+                data['additional_context']['copmany_description'] = additional_context[0].get('pagemap').get('metatags')[0].get('og:description')
+                data['additional_context']['company_website'] = additional_context[0].get('link')
+                data['additional_context']['linkedin_people'] = get_linkedin_people(additional_context)        
         return jsonify(data)
     else:
         data = {
@@ -237,3 +261,17 @@ def get_company_info_or_create(name: str, location: str):
         db.session.add(new_company)
         db.session.commit()
         return new_company.logo
+    
+
+
+@bp.route('/get_salary_api/<title>/<location>', methods=['GET'])
+def get_salary_api(title: str, location: str):
+
+    print(request_salary_insight(title,location))
+
+    data = {
+        'name': 'django',
+        'location': 'london',
+        'average': 80000
+    }
+    return jsonify(data)
