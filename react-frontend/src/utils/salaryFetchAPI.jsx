@@ -12,7 +12,6 @@ export const get_salary_insight = async (name: string, location: string) => {
       }
 }
 
-
 export const SalaryRangeIndicatorElement = ({average, price}) => {
   // Once the get_slary call has been made it will then use that data to know which inicator to display.  
 
@@ -22,9 +21,13 @@ export const SalaryRangeIndicatorElement = ({average, price}) => {
   const percentage_difference = Math.abs((number_price - number_average) / number_average) * 100;
   const message = `${percentage_difference}% ${bullish ? 'Above' : 'Below'} Market Value`
 
-  return (
-    bullish ? <i className="bi bi-arrow-up" style={{color: 'green'}} title={message}></i> : <i className="bi bi-arrow-down red" style={{color: 'red'}}  title={message}></i>
-  );
+  if (percentage_difference === 0){
+    return ( null );
+  } else{
+    return (
+      bullish ? <i className="bi bi-arrow-up" style={{color: 'green'}} title={message}></i> : <i className="bi bi-arrow-down red" style={{color: 'red'}}  title={message}></i>
+    );
+  }
 }
 
 function convertToNumber(value) {

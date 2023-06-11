@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {get_jobs, get_jobs_skills_match} from '../../services/server_calls';
+import {get_jobs, get_jobs_skills_match} from '../services/server_calls';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf';
 
 async function extractTextFromPDF(file: File) {
@@ -58,7 +58,7 @@ interface JobData {
   url: string;
 }
 
-const example_json: JobData = {
+const example_json = {
   company: "La Fosse Associates",
   date_posted: "2023-05-14 18:30:37",
   description: "Responsibilities: Create web applications using the Django framework. Work in tandem with product managers, user experience designers, and other developers to create online applications that serve the needs of the company. Improve the speed, scalability, and safety of your web apps. Reduce application downtime with prompt problem solving and debugging. Take part in code reviews to improve code quality and offer helpful criticism to your peers. H...",
@@ -74,7 +74,7 @@ const example_json: JobData = {
 };
 
 
-function JobCard({ jsonData, isLoading, onClick }) {
+function Card({ jsonData, isLoading, onClick }) {
   const [data, setData] = useState(null);
 
   useEffect(() => {
@@ -128,8 +128,7 @@ function JobCard({ jsonData, isLoading, onClick }) {
   );
 }
 
-function JobResults({ results, title, location, onchange }){
-
+function Result({ results, title, location, onchange }){
   const [uploadPlaceholder, setUploadPlaceholder] = useState('Upload Resume');
 
   useEffect(() => {
@@ -156,6 +155,10 @@ function JobResults({ results, title, location, onchange }){
     };
   }, []);
 
+  // useEffect(() => {
+  //   setUploadPlaceholder('Upload Resume')
+  // },[title, location])
+  
 
   const handleFileChange = async (event) => {
     const file = event.target.files[0];
@@ -193,29 +196,30 @@ function JobResults({ results, title, location, onchange }){
 
 
 
-
-function Timeline({ handleClick, context}) {
-  const [jobs, setJobs] = useState<JobData[]>([]);
-
+function Timeline({ handleClick, title, location, onload = function(id){} }) {
+  const [jobs, setJobs] = useState([]);
   const [results, setResults] = useState<number>(0);
-  const [title, setTitle] = useState(context.title);
-  const [location, setLocation] = useState(context.location);
-  const [infinateScroll, setInfinateScroll] = useState(true)
+  const [infiniteScroll, setInfiniteScroll] = useState(true);
+  const [isloading, setIsLoading] = useState(false)
+
 
 
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true)
       try {
         const data = await get_jobs(title, location, undefined);
         setJobs(data['results']);
         setResults(data['length']);
+        setIsLoading(false)
+        onload(data['results'][0]['id'])
       } catch (error: any) {
         console.log('error', error);
       }
     };
 
     fetchData();
-  }, []);
+  }, [title, location]);
 
   useEffect(() => {
     const fetchMoreJobs = async () => {
@@ -234,46 +238,44 @@ function Timeline({ handleClick, context}) {
     const handleScroll = () => {
       const isBottom =
         window.innerHeight + window.pageYOffset >= document.body.offsetHeight;
-      if (isBottom && infinateScroll) {
+      if (isBottom && infiniteScroll) {
         fetchMoreJobs();
       }
-
     };
 
     window.addEventListener('scroll', handleScroll);
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
-  }, [jobs]);
+  }, [jobs, title]); // Add 'jobs' and 'title' as dependencies
 
-
-  const onchange = async (resumeText)=>{
+  const onChange = async (resumeText) => {
+    setIsLoading(true)
     const params = {
       'add_jobs': 'true'
     }
-    const matcheJobs = await get_jobs_skills_match(title, location, resumeText, params);
-    console.log(matcheJobs)
-    setJobs(matcheJobs['results'])
-    setResults(matcheJobs['length'])
-    setInfinateScroll(false)
+    const matchedJobs = await get_jobs_skills_match(title, location, resumeText, params);
+    setJobs(matchedJobs['results']);
+    setResults(matchedJobs['length']);
+    setIsLoading(false)
+    setInfiniteScroll(false);
   };
-  
-
 
   return (
     <div>
-      <JobResults results={results} title={title} location={location} onchange={onchange} />
-      {jobs.length > 0 ? (
-        jobs.map((item, index) => (
-          <JobCard key={index} jsonData={item} isLoading={false} onClick={handleClick} />
+      <Result results={results} title={title} location={location} onchange={onChange} />
+      {jobs && jobs.length > 0 ? (
+        jobs.map((item, _) => (
+          <Card jsonData={item} isLoading={isloading} onClick={handleClick} />
         ))
       ) : (
-        <>No Jobs found</>
+        Array.from({ length: 10 }, (_, index) => (
+          <Card jsonData={example_json} isLoading={true} onClick={handleClick} key={index} />
+        ))      
       )}
     </div>
   );
 }
-
 
 
 export default Timeline;

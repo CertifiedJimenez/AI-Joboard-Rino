@@ -1,12 +1,31 @@
 import React, { useEffect, useState } from 'react';
-import { get_job_info } from '../../services/server_calls';
-import { SalaryRangeIndicatorElement } from '../../utils/salaryFetchAPI';
+import { get_job_info } from '../services/server_calls';
+import { SalaryRangeIndicatorElement } from '../utils/salaryFetchAPI';
+
+
+const example_json = {
+  company: "La Fosse Associates",
+  date_posted: "2023-05-14 18:30:37",
+  description: "Responsibilities: Create web applications using the Django framework. Work in tandem with product managers, user experience designers, and other developers to create online applications that serve the needs of the company. Improve the speed, scalability, and safety of your web apps. Reduce application downtime with prompt problem solving and debugging. Take part in code reviews to improve code quality and offer helpful criticism to your peers. H...",
+  job_type: "Full-Time",
+  location: "London",
+  salary_max: 500,
+  salary_min: 450,
+  skills: ["Django", "framework", "scalability", "debugging"],
+  source: "Reed",
+  title: "Django Developer",
+  url: "https://www.reed.co.uk/jobs/django-developer/50195002"
+};
+
+
+
 
 function JobRender({ jobId, salaryData }) {
 
 
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+
 
   useEffect(() => {
     const handleScroll = () => {
@@ -41,7 +60,8 @@ function JobRender({ jobId, salaryData }) {
         setData(jobData);
         setIsLoading(false);
       } catch (error) {
-        setIsLoading(false);
+        setData(example_json)
+        setIsLoading(true);
       }
     };
     fetchData();
@@ -67,7 +87,7 @@ function JobRender({ jobId, salaryData }) {
           <div className='row'>
             {data.salary_min && data.salary_max && (
               <div className='w-auto'>
-                <h5>£{data.salary_min} - £{data.salary_max} <SalaryRangeIndicatorElement average={salaryData.average} price={data.salary_max}/> </h5>
+                <h5>£{data.salary_min} - £{data.salary_max} <SalaryRangeIndicatorElement average={salaryData?.average} price={data.salary_max}/> </h5>
               </div>
             )}
             {data.job_type && (
