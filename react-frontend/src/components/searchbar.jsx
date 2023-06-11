@@ -23,13 +23,13 @@ function Search({ submit }) {
         <div className="form-group col-md-5">
           <label htmlFor="searchTitle">Role</label>
           <div className="d-flex align-items-center">
-            <input type="text" className="form-control" id="searchTitle" name="title" placeholder="Enter title" />
+            <input type="text" className="form-control" id="searchTitle" name="title" placeholder="Enter title" required/>
           </div>
         </div>
         <div className="form-group col-md-5 ">
           <label htmlFor="searchLocation">Location</label>
           <div className="d-flex align-items-center">
-            <input type="text" className="form-control" id="searchLocation" name="location" placeholder="Enter location" />
+            <input type="text" className="form-control" id="searchLocation" name="location" placeholder="Enter location" required/>
           </div>
         </div>
         <div className="col-md-2 d-flex justify-content-center align-items-center">
