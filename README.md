@@ -1,5 +1,5 @@
 # AI-Joboard(Rino) App
-![Thumbnail](https://i.imgur.com/680RXjZ.jpg)
+![Thumbnail](https://i.imgur.com/voKHPuF.png)
 
 AI-powered job board using Flask that allows job seekers to easily find the most relevant job
 openings based on their skills and experience. The job board features an AI model that extracts skills from
