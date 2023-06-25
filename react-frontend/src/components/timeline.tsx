@@ -195,13 +195,58 @@ function Result({ results, title, location, onchange }){
 }
 
 
-
-function Timeline({ handleClick, title, location, onload = function(id){} }) {
+function Timeline({ handleClick, title, location, onload = function(id){}, updateSearchPreferences = function(company, skills, yoe){} }) {
   const [jobs, setJobs] = useState([]);
   const [results, setResults] = useState<number>(0);
   const [infiniteScroll, setInfiniteScroll] = useState(true);
   const [isloading, setIsLoading] = useState(false)
+  
+  const [Company, setCompany] = useState([])
+  const [Skills, setSkills] = useState([])
+  const [YOE, setYoe] = useState([])
 
+
+  function uniqueValues(original = [], updatedResults = []) {
+    const updated_list = [];
+
+    updatedResults.forEach((word) => {
+      if ((!original.includes(word)) && (!updated_list.includes(word))) {
+        updated_list.push(word);
+      }
+    });
+    return original.concat(updated_list);
+  }
+  
+  
+  function serializeSearches(data = [], field = '', array_filed = false) {
+    const flattenedList = data.flatMap(entry => {
+      const fieldValue = entry[field] || '';
+      if (array_filed === false){
+      return [fieldValue];
+      }else{
+        return fieldValue.flat();
+      }
+    });  
+    return flattenedList
+  }
+
+
+  function uniqueSerializeSearches(data = [], field = '', original_data = [], array_filed = false){
+    let results = serializeSearches(data, field, array_filed)
+    return uniqueValues(original_data, results)
+  }
+
+
+  function updateSearchInsights(data, reset = false){
+    if(reset){
+      setCompany(uniqueSerializeSearches(data, 'company', []))
+      setSkills(uniqueSerializeSearches(data, 'skills', [], true))
+    }else{
+      setCompany(uniqueSerializeSearches(data, 'company', Company))
+      setSkills(uniqueSerializeSearches(data, 'skills', Skills, true))
+    }
+    updateSearchPreferences(Company, Skills, [])
+  }
 
 
   useEffect(() => {
@@ -211,15 +256,18 @@ function Timeline({ handleClick, title, location, onload = function(id){} }) {
         const data = await get_jobs(title, location, undefined);
         setJobs(data['results']);
         setResults(data['length']);
-        setIsLoading(false)
+        setIsLoading(false);
+        setInfiniteScroll(true);
         onload(data['results'][0]['id'])
+        updateSearchInsights(data['results'], true)
       } catch (error: any) {
         console.log('error', error);
       }
     };
-
     fetchData();
   }, [title, location]);
+
+
 
   useEffect(() => {
     const fetchMoreJobs = async () => {
@@ -230,10 +278,13 @@ function Timeline({ handleClick, title, location, onload = function(id){} }) {
         };
         const newJobs = await get_jobs(title, location, params);
         setJobs((prevJobs) => [...prevJobs, ...newJobs['results']]);
+        updateSearchInsights(newJobs['results'])
       } catch (error: any) {
         console.log('error', error);
       }
     };
+
+
 
     const handleScroll = () => {
       const isBottom =
@@ -249,6 +300,7 @@ function Timeline({ handleClick, title, location, onload = function(id){} }) {
     };
   }, [jobs, title]); // Add 'jobs' and 'title' as dependencies
 
+
   const onChange = async (resumeText) => {
     setIsLoading(true)
     const params = {
@@ -259,6 +311,7 @@ function Timeline({ handleClick, title, location, onload = function(id){} }) {
     setResults(matchedJobs['length']);
     setIsLoading(false)
     setInfiniteScroll(false);
+    updateSearchInsights(matchedJobs['results'], true)
   };
 
   return (

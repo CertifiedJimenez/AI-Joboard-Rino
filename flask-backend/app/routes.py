@@ -12,6 +12,7 @@ from .utils.count_vectorizer import Count_Vectorize_Jobs
 
 from .models import db, Jobs, Company
 import json
+from datetime import datetime, timedelta
 from sqlalchemy import or_, and_, distinct, func
 import warnings
 import logging
@@ -111,15 +112,14 @@ def load_jobs(name, location, start, end) -> list[dict, int]:
     in the database queries.
     """
 
-    # jobs = Jobs.query.filter(or_(Jobs.title.ilike(f'%{name}%'), Jobs.location.ilike(f'%{location}%'), Jobs.description.ilike(f'%{name}%')))
-
     # Define the filters
     name_filter = Jobs.title.ilike(f'%{name}%')
     location_filter = Jobs.location.ilike(f'%{location}%')
     description_filter = Jobs.description.ilike(f'%{name}%')
 
     # Construct the query
-    jobs = Jobs.query.filter(and_(or_(location_filter, name_filter, description_filter), Jobs.location.ilike(f'%{location}%')))
+    thirty_days_ago = datetime.now() - timedelta(days=30) # Filter by 30 days
+    jobs = Jobs.query.filter(and_(or_(location_filter, name_filter, description_filter), Jobs.location.ilike(f'%{location}%'), Jobs.date_posted >= thirty_days_ago))
 
     # Add the ordering
     jobs = jobs.order_by(
@@ -130,6 +130,7 @@ def load_jobs(name, location, start, end) -> list[dict, int]:
     jobs_count = jobs.with_entities(func.count()).scalar() 
 
     jobs_subset = jobs.order_by(Jobs.id.asc()).slice(start, end).all()  # Fetch the subset of jobs directly from the database
+
 
     return [[{
         'id': job.id,
